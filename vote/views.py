@@ -31,6 +31,7 @@ class QuestionAPIView(APIView):
 
 class VoteAPIView(APIView):
     # 투표 하기
+    @transaction.atomic
     def post(self, request, board_id, choice_id):
         auth = get_authorization_header(request).split()
         if auth and len(auth) == 2:
@@ -50,10 +51,6 @@ class VoteAPIView(APIView):
 
             return Response({'Message': 'Success'}, status=status.HTTP_201_CREATED)
             
-                
-        # 투표는 게시글 작성 화면에서 추가할 경우 작성을 할 수 있다.
-        # 투표 제목을 쓰고 만료기한을 설정하고 투표 항목들을 추가하여 생성한다.
-        # 투표 작성을 눌렀을 때, vote와 choice에 각각 입력한 항목이 동시에 저장 되어야함
     # 투표 조회
     def get(self, request):
         pass
