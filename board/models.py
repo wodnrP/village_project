@@ -16,5 +16,5 @@ class Comments(models.Model):
     board = models.ForeignKey(Board, on_delete=models.CASCADE)
     commenter = models.ForeignKey(CustomAbstractBaseUser, related_name="+", on_delete=models.CASCADE, blank=True)
 
-    def __str__(self):
+    def __int__(self):
         return self.board
