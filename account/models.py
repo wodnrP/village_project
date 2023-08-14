@@ -12,5 +12,4 @@ class Account(models.Model):
     designate_date = models.DateField()
     admin_user = models.ForeignKey(CustomAbstractBaseUser, on_delete=models.CASCADE)
 
-    def __str__(self):
-        return self.explain
+    

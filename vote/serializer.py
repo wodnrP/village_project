@@ -5,10 +5,10 @@ class VoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vote
-        fields = ('id', 'board', 'titile', 'create_time')
+        fields = ('id', 'board', 'title', 'create_time')
 
 class ChoiceSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Choice
-        fields = ('id', 'count', 'vote', 'content')
+        fields = ('id', 'count', 'vote', 'content', 'voter')
