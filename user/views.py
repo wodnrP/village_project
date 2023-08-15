@@ -6,6 +6,7 @@ from rest_framework.authentication import get_authorization_header
 from .authentication import create_access_token, create_refresh_token, access_token_exp, decode_access_token, decode_refresh_token
 from .serializer import UserSerializer
 from .models import CustomAbstractBaseUser
+import hashlib
 
 # # Create your views here.
 
@@ -156,6 +157,11 @@ class RefreshAPIView(APIView):
             'access_exp': access_exp
         })
 
+# building_name을 hash_encoding
+def generate_building_code(building_name):
+    hash_text = hashlib.sha256(building_name.encode()).hexdigest()
+    return hash_text[:20]
+
 # 관리자 회원가입 API 
 class AdminSignupAPIView(APIView):
     def post(self, request):
@@ -170,7 +176,20 @@ class AdminSignupAPIView(APIView):
         if request.data['admin_check'] != 'True':
             raise AdminException()
         
-        serializer = UserSerializer(data=request.data)
+        # 관리자 building_code 생성 및 저장 
+        if request.data['building_name'] is not None:
+            building_code = generate_building_code(request.data['building_name'])
+            
+            data = {
+                'email':request.data['email'],
+                'password':request.data['password'],
+                'building_name':request.data['building_name'],
+                'admin_check': request.data['admin_check'],
+                'building_num':request.data['building_num'],
+                'building_code': building_code
+            }
+
+        serializer = UserSerializer(data=data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
 
