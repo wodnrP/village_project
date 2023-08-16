@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignupAPIView, LoginAPIView, UserAPIView, RefreshAPIView, AdminLoginAPIView, AdminSignupAPIView
+from .views import SignupAPIView, LoginAPIView, UserAPIView, RefreshAPIView, AdminLoginAPIView, AdminSignupAPIView, kakao_login, kakao_callback
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -10,4 +10,6 @@ urlpatterns = [
     path('refresh', RefreshAPIView.as_view(), name='refresh-login'),            # refresh 로그인
     path('admin-signup', AdminSignupAPIView.as_view(), name='admin-signup'),    # 관리자 계정 회원가입
     path('admin-login', AdminLoginAPIView.as_view(), name='admin-login'),       # 관리자 계정 로그인
+    path('account/login/kakao/', kakao_login, name='kakao_login'),
+    path('account/login/kakao/callback/', kakao_callback, name='kakao_callback'),
 ]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
