@@ -7,7 +7,8 @@ from .authentication import create_access_token, create_refresh_token, access_to
 from .serializer import UserSerializer
 from .models import CustomAbstractBaseUser
 import hashlib
-
+from django.shortcuts import redirect
+import urllib.parse
 # # Create your views here.
 
 # 회원가입 에러 처리
@@ -228,3 +229,44 @@ class AdminLoginAPIView(APIView):
             raise AdminException()
         
         return token_create(user)
+
+
+# KAKAO 인가 코드 받기 
+import config.my_settings as my_settings
+import requests
+
+def kakao_login(request):
+    app_key = my_settings.KAKAO['REST_API_KEY']
+    redirect_uri = my_settings.KAKAO['MAIN_DOMAIN']+"/users/account/login/kakao/callback"
+    kakao_auth_api = "https://kauth.kakao.com/oauth/authorize?response_type=code"
+    return redirect(
+        f'{kakao_auth_api}&client_id={app_key}&redirect_uri={redirect_uri}'
+    )
+
+def kakao_callback(request):
+    # 카카오 login redirection
+    data = {
+        "grant_type":"authorization_code",
+        "client_id":my_settings.KAKAO['REST_API_KEY'],
+        "redirect_uri":my_settings.KAKAO['MAIN_DOMAIN']+"/users/account/login/kakao/callback",
+        "code":request.GET['code']
+    }
+
+    # token 요청
+    kakao_token_api = "https://kauth.kakao.com/oauth/token"
+    access_token = requests.post(kakao_token_api, data=data).json()['access_token']
+    
+
+    # 토큰 기반 사용자 정보 반환
+    kakao_user_api = "https://kapi.kakao.com/v2/user/me"
+    header = {"Authorization":f"Bearer {access_token}"}
+    user_info = requests.get(kakao_user_api, headers=header).json()
+
+    print(user_info["kakao_account"])
+    kakao_email = user_info["kakao_account"]["email"]
+
+    # 카카오로 로그인 > email
+    # 만약 user db와 비교했을 때 email이 있다면 중복된 email입니다. -> 일반 회원가입 유도
+    # 만약 관리자가 아니고 email 중복이 아니라면, 새로운 사용자로 생성 
+    # 엑세스 토큰, 리프레시 토큰 반환 
+    
