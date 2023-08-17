@@ -8,7 +8,7 @@ from .serializer import UserSerializer
 from .models import CustomAbstractBaseUser
 import hashlib
 from django.shortcuts import redirect
-import urllib.parse
+from django.http import JsonResponse
 # # Create your views here.
 
 # 회원가입 에러 처리
@@ -45,19 +45,27 @@ class AdminException(APIException):
     default_detail  = '관리자 계정이 아닙니다.'
     default_code = 'KeyNotFound'
 
+class KakaoSigninException(APIException):
+    status_code = 400
+    default_detail = '카카오 로그인 불가, 중복된 이메일 입니다.'
+    default_code = 'KeyNotFound'
+
 # 로그인/회원가입시 토큰 생성 함수
 def token_create(user):    
     access_token = create_access_token(user.id)
     access_exp = access_token_exp(access_token)
     refresh_token = create_refresh_token(user.id)
-
-    response = Response(status=status.HTTP_201_CREATED)
+    response = Response(
+        status=status.HTTP_201_CREATED, 
+        content_type='application/json', 
+        )
     response.set_cookie(key='refreshToken', value=refresh_token, httponly=True)         #리프레쉬 토큰 쿠키에 저장
     response.data = {
         'access_token' : access_token,
         'access_exp' : access_exp,
         'refresh_token' : refresh_token
     }
+    print(response.data)
     return response
 
 # 사용자 일반 회원가입 API (회원가입시 즉시 로그인)
@@ -262,11 +270,42 @@ def kakao_callback(request):
     header = {"Authorization":f"Bearer {access_token}"}
     user_info = requests.get(kakao_user_api, headers=header).json()
 
-    print(user_info["kakao_account"])
+    kakao_id = user_info["id"]
     kakao_email = user_info["kakao_account"]["email"]
-
-    # 카카오로 로그인 > email
-    # 만약 user db와 비교했을 때 email이 있다면 중복된 email입니다. -> 일반 회원가입 유도
-    # 만약 관리자가 아니고 email 중복이 아니라면, 새로운 사용자로 생성 
-    # 엑세스 토큰, 리프레시 토큰 반환 
     
+    # 카카오 이메일로 사용자 모델 필터
+    user = CustomAbstractBaseUser.objects.filter(email=kakao_email).first()
+    # 만약 해당 사용자가 없으면
+    if not user:
+        new_user = CustomAbstractBaseUser.objects.create(
+            email=kakao_email,
+            kakao_check=kakao_id
+            )
+        # 해당 사용자 로그인 
+        return token_create(new_user)
+    
+    # eamil은 존재, kakao 사용자가 아니면 일반 회원가입 유도
+    if not user.kakao_check:
+        return KakaoSigninException()
+    
+    # 전부 아닐 경우, 이미 이메일이 있고, 카카오 사용자이므로 로그인
+    else:
+        access_token = create_access_token(user.id)
+        access_exp = access_token_exp(access_token)
+        refresh_token = create_refresh_token(user.id)
+        
+        res_data={
+            'access_token' : str(access_token),
+            'access_exp' : str(access_exp),
+            'refresh_token' : str(refresh_token)
+        }
+        
+        response = JsonResponse(
+            data=res_data,
+            status=status.HTTP_201_CREATED, 
+            content_type='application/json', 
+            )
+        response.set_cookie(key='refreshToken', value=str(refresh_token), httponly=True)         #리프레쉬 토큰 쿠키에 저장
+        return response
+
+        
