@@ -42,6 +42,11 @@ AUTH_USER_MODEL = 'user.CustomAbstractBaseUser'
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.kakao',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -50,11 +55,17 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'user.apps.UserConfig',
     'board.apps.BoardConfig',
-    'account.apps.AccountConfig',
+    'accountbook.apps.AccountbookConfig',
     'vote.apps.VoteConfig',
     'rest_framework',
     'drf_yasg',
 ]
+
+SITE_ID = 1
+
+LOGIN_REDIRECT_URL = ''
+#ACCOUNT_LOGOUT_REDIRECT_URL =   
+ACCOUNT_LOGOUT_ON_GET = True
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -149,13 +160,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# swagger token add
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'DRF Token': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    }
-}
+

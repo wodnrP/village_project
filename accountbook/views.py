@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Account
-from user.models import CustomAbstractBaseUser
+from user.models import CustomAbstractBaseUser as User
 from .serializer import AccountSerializer
 from rest_framework.authentication import get_authorization_header
 from user.authentication import decode_access_token
@@ -16,7 +16,7 @@ class AccountAPIView(APIView):
     def post(self, request):
         auth = get_authorization_header(request).split()
         if auth and len(auth) == 2:
-            user = CustomAbstractBaseUser.objects.filter(id=decode_access_token(auth[1]))
+            user = User.objects.filter(id=decode_access_token(auth[1]))
             
             # 관리자 권한 검사 
             if user.values('admin_check')[0].get('admin_check') == True:
@@ -31,35 +31,47 @@ class AccountAPIView(APIView):
     
     # 장부 전체 조회 query = ?year=2023&month=08
     def get(self, request):
-        year = request.GET.get('year', None)
-        month = request.GET.get('month', None)
+        auth = get_authorization_header(request).split()
+        if auth and len(auth) == 2:
+            year = request.GET.get('year', None)
+            month = request.GET.get('month', None)
 
-        paginator = PageNumberPagination()
+            paginator = PageNumberPagination()
 
-        # 페이지 내의 최대 객체 수 = 31 (한 달)
-        paginator.page_size = 31
+            # 페이지 내의 최대 객체 수 = 31 (한 달)
+            paginator.page_size = 31
 
-        # ?year=Null, 현재 년도 반환 = yyyy 포맷
-        if year is None:
-            year = DateFormat(datetime.now()).format('Y')
+            # ?year=Null, 현재 년도 반환 = yyyy 포맷
+            if year is None:
+                year = DateFormat(datetime.now()).format('Y')
 
-        # ?month=Null, 현재 월 반환 = mm 포맷
-        if month is None:
-            month = DateFormat(datetime.now()).format('m')
-        
-        # Account DB모델에서 year, month로 필터링
-        account = Account.objects.filter(
-            designate_date__year=year, 
-            designate_date__month=month
-            )
-        result = paginator.paginate_queryset(account, request)
-
-        try:
-            serializer = AccountSerializer(result, many = True, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        except Account.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            # ?month=Null, 현재 월 반환 = mm 포맷
+            if month is None:
+                month = DateFormat(datetime.now()).format('m')
+            
+            # Account DB모델에서 year, month로 필터링
+            account = Account.objects.filter(
+                designate_date__year=year, 
+                designate_date__month=month
+                )
+            result = paginator.paginate_queryset(account, request)
+            
+            # 현재 로그인 한 사용자 
+            login_user = User.objects.get(pk = decode_access_token(auth[1]))
+            # 장부를 작성한 사용자
+            write_user = User.objects.get(pk = account.values('user')[0].get('user'))
+            
+            # 현재 사용자와 글을 작성한 사용자의 건물 고유 코드 비교
+            if login_user.building_code != write_user.building_code:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+            
+            else:
+                try:
+                    serializer = AccountSerializer(result, many = True, context={"request": request})
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                
+                except Account.DoesNotExist:
+                    return Response(status=status.HTTP_400_BAD_REQUEST)
 
 class AccountDetailAPIView(APIView):
     def get(self, request, account_id):

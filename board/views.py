@@ -5,6 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.authentication import get_authorization_header
 from user.authentication import decode_access_token
 from .models import Board, Comments
+from user.models import CustomAbstractBaseUser as User
 from .serializer import BoardSerializer, CommentSerializer
 # Create your views here.
 
@@ -21,34 +22,47 @@ class BoardAPIView(APIView):
     
     # url: domain.com/?page=1&items=1 
     def get(self, request):
-        page = request.GET.get('page', None)
-        items = request.GET.get('items', None)
-        
-        paginator = PageNumberPagination()
-        # 1페이지 최대 items 수 = 10
-        paginator.page_size = 10
+        auth = get_authorization_header(request).split()
+        if auth and len(auth) == 2:
 
-        # defalt paeg = 1
-        if page is None:
-            page = 1
+            page = request.GET.get('page', None)
+            items = request.GET.get('items', None)
+            
+            paginator = PageNumberPagination()
+            # 1페이지 최대 items 수 = 10
+            paginator.page_size = 10
+
+            # defalt paeg = 1
+            if page is None:
+                page = 1
+            
+            # items가 null이 아닐 경우, items 값으로 page_size 초기화 
+            if items is not None:
+                paginator.page_size = int(items)
+            
+            # page 값 int로 타입 변환
+            page = int(page)
+            
+            board = Board.objects.filter().order_by('-create_time')
+            result = paginator.paginate_queryset(board, request)
+            
+            # 현재 로그인 한 사용자 
+            login_user = User.objects.get(pk = decode_access_token(auth[1]))
+            # 글을 작성한 사용자
+            write_user = User.objects.get(pk = board.values('user')[0].get('user'))
+            
+            # 현재 사용자와 글을 작성한 사용자의 건물 고유 코드 비교
+            if login_user.building_code != write_user.building_code:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+            
+            else:
+                try:
+                    serializer = BoardSerializer(result, many = True, context={"request": request})
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                
+                except Board.DoesNotExist:
+                    return Response(status=status.HTTP_400_BAD_REQUEST)
         
-        # items가 null이 아닐 경우, items 값으로 page_size 초기화 
-        if items is not None:
-            paginator.page_size = int(items)
-        
-        # page 값 int로 타입 변환
-        page = int(page)
-        
-        board = Board.objects.filter().order_by('-create_time')
-        result = paginator.paginate_queryset(board, request)
-        
-        try:
-            serializer = BoardSerializer(result, many = True, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        except Board.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-    
 
 class BoardDetailAPIView(APIView):
     # 특정 게시글 조회 
